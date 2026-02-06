@@ -12,6 +12,22 @@ The Governance Stack
 
 Together these components form an automated safety net: authors must codify intent in `specs/`, local hooks block violations at commit-time, CI enforces the same policies on push, and the orchestrator validates runtime constraints before execution.
 
+AI-Driven PR Review (Digital Supervisor)
+----------------------------------------
+We run an AI-driven Reviewer configured by `.coderabbit.yaml` that acts as the repository's Digital Supervisor for Pull Requests. The reviewer enforces three high-value policies automatically:
+
+- **Spec Alignment:** Validates that any new or modified `Agent Task` artifacts conform to the `specs/technical.md` JSON Schema and require a `spec_reference` to a ratified spec.
+- **Rule 3 (MCP-first):** Scans diffs for direct network usage (`requests`, `urllib`, raw `curl`, sockets, etc.) and flags or blocks any such usage unless it lives within an `adapters/` or `sidecars/` directory.
+- **TDD Verification:** Checks that new features include unit tests under `tests/`; PRs changing source files without matching tests will be rejected with remediation guidance.
+
+How the AI Reviewer functions as the Digital Supervisor:
+
+- **Automated Gatekeeping:** The AI Reviewer runs on each PR and provides deterministic pass/fail results recorded in PR checks. It blocks merges that violate core governance rules, creating an enforcement layer before code reaches CI or production.
+- **Contextual Guidance:** When it flags issues, the reviewer posts actionable comments with file/line examples and suggested fixes (for example, refactoring network calls into an `adapters/http_adapter/`).
+- **Audit Trail:** Every AI review run is recorded in the PR checks and CI logs; combined with `specs/_meta.md` this creates a traceable record of policy compliance and remediation history.
+- **Digital Supervision for Agentic Swarms:** For agentic systems, the reviewer enforces contract-first design and prevents agents from gaining unsanctioned network access. This helps keep agent behaviors scoped to ratified specs and centralizes external access through auditable adapters/sidecars.
+
+
 Infrastructure as Code
 ----------------------
 - `Makefile` targets:

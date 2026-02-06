@@ -1,0 +1,42 @@
+# CodeRabbit AI Reviewer configuration for Project Chimera
+version: 1
+reviewer: coderabbit
+
+rules:
+  - id: check-spec-alignment
+    title: Check Spec Alignment
+    description: |
+      Ensure every PR and changed task artifact conforms to the JSON Schema in `specs/technical.md`.
+      For any new or modified files that look like `Agent Task` objects, validate them against
+      `specs/technical.md` and require a `spec_reference` field pointing to a ratified spec.
+    severity: fail
+
+  - id: enforce-rule-3
+    title: Enforce Rule 3 (MCP-first)
+    description: |
+      Flag direct network calls that are not located under an `adapters/` directory. Scan diffs
+      for common network imports and usages (`requests`, `urllib`, `http.client`, `aiohttp`,
+      `socket`, raw `curl` in shell snippets) and fail the review if they appear outside
+      `adapters/` or `sidecars/`. Provide a remediation snippet pointing authors to
+      `adapters/http_adapter/` as an example.
+    severity: fail
+
+  - id: verify-tdd
+    title: Verify TDD (Unit Tests Present)
+    description: |
+      Ensure new features include corresponding unit tests. If a PR introduces or modifies
+      non-test source files (outside `tests/`), the reviewer must detect a matching test file
+      under `tests/` that exercises the new behavior. Fail if no appropriate unit tests are
+      provided; suggest test file naming and location patterns (e.g., `tests/unit/test_<feature>.py`).
+    severity: fail
+
+reporting:
+  fail_on_any: true
+  comment_template: |
+    %%%
+    Automated AI Review Findings:
+    - Rule: {{rule_id}} — {{title}}
+    - Severity: {{severity}}
+    - Details: {{details}}
+    Suggested fix: {{remediation}}
+    %%%
