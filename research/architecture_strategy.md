@@ -48,6 +48,55 @@ Cognitive Overload in the SRS refers to the system (or human overseers) receivin
 
 5. Write small integration tests (simulated high-volume bursts) to validate that the aggregator enforces backpressure and that cognitive agents receive condensed events.
 
+## Swarm Pattern: Hierarchical Swarm (Task 1.2)
+
+We define the swarm architecture as a Hierarchical Swarm to maintain clear control boundaries and prevent "chain hallucinations." Key roles:
+
+- **Orchestrator (The Brain):** Acts as the top-level coordinator. It performs capability discovery via MCP, enforces `specs/` contracts, validates `Agent Task` objects with the governor, applies budget limits, and routes tasks to appropriate Worker Agents.
+- **Worker Agents:** Specialized units (Perception, Video Gen, Metadata Enricher, Publisher, etc.) that receive validated `Agent Task` objects from the Orchestrator over MCP, perform their work, and emit results/events back via MCP topics.
+
+Operational guarantees:
+
+- The Orchestrator issues tasks with explicit `spec_reference` and `required_mcp_tools` to workers, preventing implicit, unbounded chaining of sub-tasks (chain hallucinations).
+- Workers are single-responsibility and minimal: they do not spawn arbitrary downstream tasks without Orchestrator approval; any delegation must be expressed as a new `Agent Task` submitted back to the Orchestrator.
+- All inter-agent network interactions flow over MCP and through adapters/sidecars so that provenance, quotas, and audit trails are preserved.
+
+## Database Strategy: Hybrid Approach (Task 1.2)
+
+We recommend a hybrid storage strategy tuned to the different consistency and latency needs of the system:
+
+- **PostgreSQL (SQL)** — Primary store for structured influencer metadata, user accounts, content ownership, relationships, and any data that requires ACID transactions and relational integrity (e.g., content provenance, approvals, billing records). Use normalized schemas, foreign keys, and periodic audits. Enable WAL archiving and logical replication for backups and reporting clusters.
+
+- **Redis (NoSQL, in-memory)** — High-velocity buffer and streaming store for real-time perception events, fused perception summaries, ephemeral feature caches, and token-budget counters. Redis streams (or RedisJSON) serve as a low-latency frontier between sidecars and perception aggregators. Use Redis for TTL-based buffers and fast counters; persist critical offsets via periodic checkpointing into PostgreSQL if durable sequence is required.
+
+Integration pattern:
+
+- Ingress sidecars push raw or validated `mcp.perception.*` events into Redis streams. Perception Aggregators consume from Redis, perform summarization, and write condensed events back to a Redis stream and into PostgreSQL (as needed) for long-term analytics.
+- PostgreSQL remains the canonical source for influencer profiles, published content metadata, and the audit log of approvals. Redis provides the real-time working set and must be treated as a cache/buffer, not the single source of truth.
+
+Operational notes:
+
+- Ensure clear ownership of schemas between Postgres and Redis; define retention and TTL policies for Redis streams.
+- Plan for scale-out: Redis clustering for stream durability and Postgres read replicas for reporting and analytics.
+
+## Human-in-the-Loop (HITL): Safety Gate (Task 1.2)
+
+All generated video metadata must pass a human Safety Gate before being published to the `MoltBook` social layer. Implementation outline:
+
+- **Safety Gate MCP Tool:** Define an MCP tool `mcp.tools.safety_gate.human_approval` that accepts `video_metadata` payloads and returns an approval decision and optional remediation notes. The tool presents a succinct review UI to human operators (out-of-band), records reviewer identity, and returns a signed approval event.
+- **Workflow:**
+  1. Video Generator Worker produces `video_metadata` and emits an `mcp.video.generated` event containing `metadata_id`, `spec_reference`, `checksum`, and preview tokens.
+  2. Orchestrator intercepts and routes the metadata to `mcp.tools.safety_gate.human_approval` as a blocking `Agent Task` with a configurable human response timeout and escalation policy.
+  3. Human reviewer inspects the metadata via the Safety Gate UI and either `approve` or `reject` with notes.
+  4. On `approve`, the orchestrator records the approval into PostgreSQL audit tables, stamps the `video_metadata` as approved, and then triggers publishing to `MoltBook` through the `adapters/moltbook/` adapter.
+  5. On `reject` (or timeout), the orchestrator routes the metadata back to the Video Gen Worker for remediation or archives it with a rejection reason.
+
+- **Provenance & Auditing:** Every Safety Gate decision is persisted in PostgreSQL with reviewer identity, timestamp, and referenced `spec_reference`. The MCP event stream carries the approval artifact so downstream systems can verify the approved state.
+
+- **Safety Defaults:** The default policy is `deny` (no publish without explicit human approval). Escalation and emergency bypass must be auditable and require multiple approvers.
+
+## Closing
+
 ## Example message (JSON sketch)
 
 {
