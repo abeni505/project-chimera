@@ -1,0 +1,49 @@
+Prime Directive: Project Chimera
+================================
+
+Purpose
+-------
+These rules are the canonical governance statements that every contributor, planner, and agent in Project Chimera must follow. They are normative: CI, pre-commit hooks, planners, and orchestrators should reference and enforce them.
+
+Core Rules
+----------
+1. Spec-Driven Development (SDD)
+   - All feature work, agent behaviors, and integrations MUST reference an existing spec under `specs/` before implementation begins.
+   - A task or PR that implements behavior without a corresponding spec entry will be blocked by CI and returned to the author for specification.
+
+2. Traceability
+   - Every planned change (task, PR, agent run) MUST include an architectural plan that explains the goal, steps, and expected outputs before execution.
+   - The plan MUST include references to the specific spec section (e.g., [specs/technical.md](specs/technical.md)) and an auditable rationale for design decisions.
+
+3. MCP-First External Connectivity
+   - All external interactions (APIs, payments, social platforms, telemetry, third-party services) MUST be exposed through MCP-compatible adapters/sidecars and follow MCP patterns for messages, provenance, and capability-discovery.
+   - Direct network calls from agent code are forbidden unless a documented, time-limited exception is granted and recorded in the task metadata.
+
+Enforcement & Mechanisms
+------------------------
+- CI Gates: validate presence of `specs/` references in PR descriptions and block merges that violate Core Rules.
+- Pre-Execution Checks: orchestrator must pre-check `required_mcp_tools` and `budget_limit` (from agent task spec) and reject runs when capabilities or budgets are insufficient.
+- Automated Linting: a rules linter flags missing traceability fields (`created_by`, `created_at`, `spec_reference`) and missing MCP-adapter usage.
+- Approval Flow: tasks with `budget_limit.amount` above a project threshold require explicit human approval recorded in metadata (`approver_id`, `approval_ts`).
+- Runtime Governor: orchestrator enforces rate limits, cost ceilings, and revocation of MCP tool grants; it logs and emits audit events for every enforced decision.
+
+Why this file is the 'Governor'
+-------------------------------
+- Policy Source: `.cursor/rules` is the single authoritative source describing permitted behavior and enforcement on the repo; CI and orchestrators read it to derive automated policies.
+- Prevents Drift: It prevents ad-hoc code-by-accident by making specs and MCP the required entry conditions for work to progress from planning → implementation → execution.
+- Execution-time Safety: By tying spec fields (e.g., `required_mcp_tools`, `budget_limit`) to pre-exec checks and runtime enforcement, the file ensures no agent can run outside declared bounds.
+- Audit & Accountability: Every deviation or exception must be recorded and traceable back to the rule; this makes governance operational, not just advisory.
+
+Operational Notes
+-----------------
+- Keep this file minimal and policy-focused; extend with CI-enforced metadata keys if needed (e.g., `approval_required`, `cost_center`).
+- Suggest adding a compact machine-readable companion (e.g., `.cursor/rules.yaml`) if you need programmatic parsing by CI/orchestrator.
+
+Adoption Checklist
+------------------
+- Add CI checks to reject PRs lacking `specs/` references.
+- Integrate orchestrator pre-checks for `required_mcp_tools` and `budget_limit`.
+- Add a linter rule that refuses direct outbound calls from agent code without allowed exceptions.
+
+---
+Last updated: 2026-02-06
