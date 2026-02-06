@@ -11,7 +11,7 @@ JSON Schema
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Agent Task",
   "type": "object",
-  "required": ["id", "task_type", "inputs", "required_mcp_tools", "budget_limit"],
+  "required": ["id", "task_type", "inputs", "required_mcp_tools", "budget_limit", "spec_reference"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-zA-Z0-9_\-:.]+$"},
     "title": {"type": "string"},
@@ -24,8 +24,13 @@ JSON Schema
     "required_mcp_tools": {
       "type": "array",
       "minItems": 1,
-      "items": {"type": "string"},
-      "description": "List of MCP-exposed tool identifiers/names the agent must have access to before executing this task."
+      "items": {"type": "string", "format": "uri"},
+      "description": "List of MCP-exposed tool URIs the agent must have access to before executing this task (e.g. mcp://payments/initiate)."
+    },
+    "spec_reference": {
+      "type": "string",
+      "description": "Path to the ratified specification that authorizes this task (must point to a file under specs/).",
+      "pattern": "^specs\\\/[a-zA-Z0-9._-]+\\.md$"
     },
     "budget_limit": {
       "type": "object",
