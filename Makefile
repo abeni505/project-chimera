@@ -6,6 +6,6 @@ test:
 	$(PYTHON) -m pytest -q
 
 lint:
-	$(PYTHON) governor/mcp_linter.py
+	PYTHONPATH=. python3 governor/mcp_linter.py
 
 verify: test lint
